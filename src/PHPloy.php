@@ -8,7 +8,7 @@
  * @link https://github.com/banago/PHPloy
  * @licence MIT Licence
  *
- * @version 4.9.0
+ * @version 4.9.2
  */
 
 namespace Banago\PHPloy;
@@ -21,7 +21,7 @@ class PHPloy
     /**
      * @var string
      */
-    protected $version = '4.9.0';
+    protected $version = '4.9.2';
 
     /**
      * @var string
@@ -495,20 +495,19 @@ class PHPloy
      * @param bool $overwriteArrayValues true to overwrite (not merge) values which are arrays, false otherwise
      * @return array
      */
-    private function mergeOptions($existing, $new, $overwriteArrayValues = false) {
+    private function mergeOptions($existing, $new, $overwriteArrayValues = false)
+    {
         $merged = $existing;
-        foreach($existing as $k => $v) {
+        foreach ($existing as $k => $v) {
             if (!$overwriteArrayValues && is_array($v) && isset($new[$k]) && is_array($new[$k])) {
                 $merged[$k] = array_merge($v, $new[$k]);
-            }
-            else if (isset($new[$k])) {
+            } elseif (isset($new[$k])) {
                 $merged[$k] = $new[$k];
-            }
-            else {
+            } else {
                 $merged[$k] = $v;
             }
         }
-        foreach($new as $k => $v) {
+        foreach ($new as $k => $v) {
             if (!is_array($v)) {
                 $merged[$k] = $v;
             }
@@ -591,7 +590,7 @@ class PHPloy
             $this->filesToExclude[$name][] = $this->iniFileName;
 
             if (!empty($options['base'])) {
-                $this->base = $options['base'].(substr($options['base'], -1) !== '/' ? '/' : '');
+                $this->base = rtrim($options['base'], '/').'/';
             }
 
             if (!empty($options['exclude'])) {
@@ -699,6 +698,43 @@ class PHPloy
     }
 
     /**
+     * Filter files form base path.
+     *
+     * @param array $files Array of files which needed to be filtered
+     *
+     * @return array
+     */
+    private function filterBasePathFiles(array $files)
+    {
+        if (!$this->base) {
+            return $files;
+        }
+
+        $thisBase = $this->base;
+        
+        return array_values(
+            array_filter(
+                $files,
+                function ($file) use ($thisBase) {
+                    return preg_match('/^'.preg_quote($thisBase, '/').'/', $file);
+                }
+            )
+        );
+    }
+
+    /**
+     * Remove bath path from file / path
+     *
+     * @param string $file
+     *
+     * @return string
+     */
+    private function removeBasePath($file)
+    {
+        return $this->base ? preg_replace('/^'.preg_quote($this->base, '/').'/', '', $file) : $file;
+    }
+
+    /**
      * Filter included files.
      *
      * @param array $files        Array of files which needed to be filtered
@@ -709,7 +745,7 @@ class PHPloy
     private function filterIncludedFiles($files, $changedFiles)
     {
         $filteredFiles = [];
-        foreach ($files as $i => $file) {
+        foreach ($files as $file) {
             $condition = explode(':', $file);
             if (isset($condition[1])) {
                 list($file, $changed) = $condition;
@@ -734,8 +770,8 @@ class PHPloy
      */
     public function connect($server)
     {
-        $connection = new Connection($server);
-        $this->connection = $connection->server;
+        $con = new Connection($server);
+        $this->connection = $con->server;
     }
 
     /**
@@ -819,7 +855,7 @@ class PHPloy
                         $this->repo = $submodule['path'];
                         $this->currentSubmoduleName = $submodule['name'];
 
-                        $this->cli->gray()->out("\r\nSUBMODULE: ".$this->currentSubmoduleName);
+                        $this->cli->lightGray()->out("\r\nSUBMODULE: ".$this->currentSubmoduleName);
                         $files = $this->compare($submodule['revision']);
 
                         if ($this->listFiles === true) {
@@ -988,6 +1024,9 @@ class PHPloy
         $filesToUpload = array_merge($filteredFilesToUpload['files'], $filteredFilesToInclude);
         $filesToDelete = $filteredFilesToDelete['files'];
 
+        $filesToUpload = $this->filterBasePathFiles($filesToUpload);
+        $filesToDelete = $this->filterBasePathFiles($filesToDelete);
+
         $filesToSkip = array_merge($filteredFilesToUpload['filesToSkip'], $filteredFilesToDelete['filesToSkip']);
 
         return [
@@ -1042,8 +1081,11 @@ class PHPloy
                     $file = $this->currentSubmoduleName.'/'.$file;
                 }
 
+                // Remove base path, if set.
+                $fileBaseless = $this->removeBasePath($file);
+
                 // Make sure the folder exists in the FTP server.
-                $dir = explode('/', dirname($file));
+                $dir = explode('/', dirname($fileBaseless));
                 $path = '';
                 $ret = true;
 
@@ -1075,12 +1117,12 @@ class PHPloy
                 }
 
                 // If base is set, remove it from filename
-                $remoteFile = $this->base ? preg_replace('/^'.preg_quote($this->base, '/').'/', '', $file) : $file;
+                $remoteFile = $fileBaseless;
 
                 $uploaded = $this->connection->put($remoteFile, $data);
 
                 if (!$uploaded) {
-                    $this->cli->error(" ! Failed to upload {$file}.");
+                    $this->cli->error(" ! Failed to upload {$fileBaseless}.");
 
                     if (!$this->connection) {
                         $this->cli->info(' * Connection lost, trying to reconnect...');
@@ -1092,7 +1134,7 @@ class PHPloy
                 $this->deploymentSize += filesize($this->repo.'/'.($this->currentSubmoduleName ? str_replace($this->currentSubmoduleName.'/', '', $file) : $file));
                 $total = count($filesToUpload);
                 $fileNo = str_pad(++$fileNo, strlen($total), ' ', STR_PAD_LEFT);
-                $this->cli->lightGreen(" ^ $fileNo of $total <white>{$file}");
+                $this->cli->lightGreen(" ^ $fileNo of $total <white>{$fileBaseless}");
             }
         }
 
@@ -1140,7 +1182,7 @@ class PHPloy
                 $this->setRevision($localRevision);
             }
         } else {
-            $this->cli->gray()->out('   No files to upload or delete.');
+            $this->cli->lightGray()->out('   No files to upload or delete.');
         }
 
         // If $this->revision is not HEAD, it means the rollback command was provided
@@ -1226,7 +1268,10 @@ class PHPloy
                         'name' => $line[1],
                         'path' => $repo.'/'.$line[1],
                     ];
-                    $this->cli->out(sprintf('   Found submodule %s. %s', $line[1], $this->scanSubSubmodules ? PHP_EOL.'      Scanning for sub-submodules...' : null
+                    $this->cli->out(sprintf(
+                        '   Found submodule %s. %s',
+                        $line[1],
+                        $this->scanSubSubmodules ? PHP_EOL.'      Scanning for sub-submodules...' : null
                     ));
                 }
 
@@ -1437,7 +1482,7 @@ class PHPloy
         /*
          * @var \phpseclib\Net\SFTP
          */
-        $connection = $this->connection->getAdapter()->getConnection();
+        $con = $this->connection->getAdapter()->getConnection();
 
         if ($this->servers[$this->currentServerName]['scheme'] != 'sftp') {
             $this->cli->yellow()->out("\r\nConnection scheme is not 'sftp' ignoring [pre/post]-deploy-remote");
@@ -1445,7 +1490,7 @@ class PHPloy
             return;
         }
 
-        if (!$connection->isConnected()) {
+        if (!$con->isConnected()) {
             $this->cli->red()->out("\r\nSFTP adapter connection problem skipping '[pre/post]-deploy-remote' commands");
 
             return;
@@ -1454,7 +1499,7 @@ class PHPloy
         foreach ($commands as $command) {
             $this->cli->blue()->out("Executing on remote server: <bold>{$command}");
             $command = "cd {$this->servers[$this->currentServerName]['path']}; {$command}";
-            $output = $connection->exec($command);
+            $output = $con->exec($command);
             $this->cli->lightBlue()->out("<bold>{$output}");
         }
     }

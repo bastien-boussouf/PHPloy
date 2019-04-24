@@ -13,10 +13,13 @@ Once your code is merged, it is available for free to everybody under the MIT Li
 Thank you for your contribution! PHPloy wouldn't be so great without you.
 
 ## Dependencies
-To preserve compatibility with PHP 5.5 when you add new dependencies, you should try to update your composer.lock file with the `--prefer-lowest` option. 
+
+To preserve compatibility with PHP 5.6 when you add new dependencies, you should try to update your composer.lock file with the `--prefer-lowest` option.
+ 
 ```bash
 composer update --prefer-lowest
 ```
+
 The downside is that you to have to set nearly exact versions for your dependencies.
 
 ## Testing
@@ -32,10 +35,13 @@ To get started with testing, please follow the steps below:
 
 1. Install [docker](https://docs.docker.com/engine/installation/)
 2. Start the test server
+
 ```
 vagrant@vagrant-ubuntu-trusty-64:/vagrant/PHPloy$ ./tests/start_test_server.sh
 ```
+
 3. run the tests
+
 ```
 vagrant@vagrant-ubuntu-trusty-64:/vagrant/PHPloy$ vendor/bin/phpunit tests
 PHPUnit 4.8.26 by Sebastian Bergmann and contributors.
@@ -44,12 +50,15 @@ Time: 2.32 seconds, Memory: 4.25MB
 OK (3 tests, 4 assertions)
 vagrant@vagrant-ubuntu-trusty-64:/vagrant/PHPloy$
 ```
+
 4. Stop the sftp server
+
 ```
 vagrant@vagrant-ubuntu-trusty-64:/vagrant/PHPloy$ ./tests/stop_test_server.sh
 ```
 
 ### Writing new tests
+
 Basically each test should be structured in the following way
 1. Prepare a test repository and phploy.ini configuration
 2. Run PHPLoy
@@ -68,6 +77,7 @@ public function testSyncAddedFileShouldSucceed($testHelper)
 ### Parametrized testing SFTP and FTP
 
 For testing FTP and SFTP at the same time tests can be parametrized. Take a look at the CommitFileTest.php:
+
 ```
 class CommitFileTest extends PHPUnit_Framework_TestCase
 {
@@ -90,9 +100,11 @@ class CommitFileTest extends PHPUnit_Framework_TestCase
   }
 }
 ```
+
 The PHPLoyTestHelper is parametrized to provide different configurations based on the type passed to the test method by the PHPunit framework.
 This is especially helpful if you want to test shared functionality available for multiple protocols.
 
 ### Travis CI
-A [`.travis.yml`](.travis.yml) file is present on the repositoriy. You can configure your Github account and forked 
+
+A [`.travis.yml`](.travis.yml) file is present on the repository. You can configure your Github account and forked 
 branch to run this file using the [travis-ci.org](https://travis-ci.org) platform.   
