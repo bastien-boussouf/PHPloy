@@ -704,20 +704,19 @@ class PHPloy
      *
      * @return array
      */
-    private function filterBasePathFiles(array $files) : array
+    private function filterBasePathFiles(array $files)
     {
         if (!$this->base) {
             return $files;
         }
 
-        $base = $this->base;
-
+        $thisBase = $this->base;
         
         return array_values(
             array_filter(
                 $files,
-                function ($file) use ($base) {
-                    return preg_match('/^'.preg_quote($base, '/').'/', $file);
+                function ($file) use ($thisBase) {
+                    return preg_match('/^'.preg_quote($thisBase, '/').'/', $file);
                 }
             )
         );
@@ -730,7 +729,7 @@ class PHPloy
      *
      * @return string
      */
-    private function removeBasePath(string $file) : string
+    private function removeBasePath($file)
     {
         return $this->base ? preg_replace('/^'.preg_quote($this->base, '/').'/', '', $file) : $file;
     }
@@ -746,7 +745,7 @@ class PHPloy
     private function filterIncludedFiles($files, $changedFiles)
     {
         $filteredFiles = [];
-        foreach ($files as $i => $file) {
+        foreach ($files as $file) {
             $condition = explode(':', $file);
             if (isset($condition[1])) {
                 list($file, $changed) = $condition;
@@ -771,8 +770,8 @@ class PHPloy
      */
     public function connect($server)
     {
-        $connection = new Connection($server);
-        $this->connection = $connection->server;
+        $con = new Connection($server);
+        $this->connection = $con->server;
     }
 
     /**
@@ -856,7 +855,7 @@ class PHPloy
                         $this->repo = $submodule['path'];
                         $this->currentSubmoduleName = $submodule['name'];
 
-                        $this->cli->gray()->out("\r\nSUBMODULE: ".$this->currentSubmoduleName);
+                        $this->cli->lightGray()->out("\r\nSUBMODULE: ".$this->currentSubmoduleName);
                         $files = $this->compare($submodule['revision']);
 
                         if ($this->listFiles === true) {
@@ -1183,7 +1182,7 @@ class PHPloy
                 $this->setRevision($localRevision);
             }
         } else {
-            $this->cli->gray()->out('   No files to upload or delete.');
+            $this->cli->lightGray()->out('   No files to upload or delete.');
         }
 
         // If $this->revision is not HEAD, it means the rollback command was provided
@@ -1483,7 +1482,7 @@ class PHPloy
         /*
          * @var \phpseclib\Net\SFTP
          */
-        $connection = $this->connection->getAdapter()->getConnection();
+        $con = $this->connection->getAdapter()->getConnection();
 
         if ($this->servers[$this->currentServerName]['scheme'] != 'sftp') {
             $this->cli->yellow()->out("\r\nConnection scheme is not 'sftp' ignoring [pre/post]-deploy-remote");
@@ -1491,7 +1490,7 @@ class PHPloy
             return;
         }
 
-        if (!$connection->isConnected()) {
+        if (!$con->isConnected()) {
             $this->cli->red()->out("\r\nSFTP adapter connection problem skipping '[pre/post]-deploy-remote' commands");
 
             return;
@@ -1500,7 +1499,7 @@ class PHPloy
         foreach ($commands as $command) {
             $this->cli->blue()->out("Executing on remote server: <bold>{$command}");
             $command = "cd {$this->servers[$this->currentServerName]['path']}; {$command}";
-            $output = $connection->exec($command);
+            $output = $con->exec($command);
             $this->cli->lightBlue()->out("<bold>{$output}");
         }
     }
