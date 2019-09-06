@@ -14,6 +14,9 @@ class Options
      */
     public $cli;
 
+    const DEFAULT_PASS_FILE = '.phploy';
+    const DEFAULT_INI_FILE = 'phploy.ini';
+
     /**
      * Options constructor.
      *
@@ -87,7 +90,12 @@ class Options
             'debug' => [
                 'prefix' => 'd',
                 'longPrefix' => 'debug',
-                'description' => 'Shows verbose output for debugging',
+                'description' => 'Shows verbose output for debugging, synonym for --verbose',
+                'noValue' => true,
+            ],
+            'verbose' => [
+                'longPrefix' => 'verbose',
+                'description' => 'Shows verbose output for debugging, synonym for --debug',
                 'noValue' => true,
             ],
             'version' => [
@@ -106,6 +114,16 @@ class Options
                 'longPrefix' => 'dryrun',
                 'description' => 'Stops after parsing arguments and do not alter the remote servers',
                 'noValue' => true,
+            ],
+            'inifile' => [
+                'longPrefix' => 'inifile',
+                'description' => 'Specify an alternate ini file to read configuration from',
+                'defaultValue' => Options::DEFAULT_INI_FILE,
+            ],
+            'passfile' => [
+                'longPrefix' => 'passfile',
+                'description' => 'Specify an alternate password file to read credentials from',
+                'defaultValue' => Options::DEFAULT_PASS_FILE,
             ]
         ]);
     }
