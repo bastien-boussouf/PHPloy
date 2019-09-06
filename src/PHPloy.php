@@ -8,7 +8,7 @@
  * @link https://github.com/banago/PHPloy
  * @licence MIT Licence
  *
- * @version 4.9.2
+ * @version 4.9.3
  */
 
 namespace Banago\PHPloy;
@@ -18,10 +18,7 @@ define('DQUOTE', '"');
 
 class PHPloy
 {
-    /**
-     * @var string
-     */
-    protected $version = '4.9.2';
+    const VERSION = '4.9.3';
 
     /**
      * @var string
@@ -158,14 +155,14 @@ class PHPloy
      *
      * @var string
      */
-    public $iniFileName = 'phploy.ini';
+    public $iniFileName = Options::DEFAULT_INI_FILE;
 
     /**
      * The filename from which to read server password.
      *
      * @var string
      */
-    public $passFile = '.phploy';
+    public $passFile = Options::DEFAULT_PASS_FILE;
 
     /**
      * @var \League\Flysystem\Filesystem;
@@ -279,9 +276,10 @@ class PHPloy
      * Constructor.
      *
      * @param Options|null $opt an optional set of Options, if null options will be read from CLI args
+     * @param bool $autoRun whether to automatically run or not at the end of the constructor method
      * @throws \Exception
      */
-    public function __construct(Options $opt = null)
+    public function __construct(Options $opt = null, $autoRun = true)
     {
         $this->opt = $opt !== null ? $opt : new Options(new \League\CLImate\CLImate());
         $this->cli = $this->opt->cli;
@@ -297,6 +295,16 @@ class PHPloy
         // Setup PHPloy
         $this->setup();
 
+        // Autorun (legacy behavior)
+        if ($autoRun) {
+            $this->run();
+        }
+    }
+
+    /**
+     * @throws \Exception
+     */
+    public function run() {
         // Check if only valid arguments are given
         // @Todo: Breaks this format: --sync="asdfasdfads"
         $arg = $this->checkArguments();
@@ -305,7 +313,7 @@ class PHPloy
             $this->cli->usage();
 
             return;
-        };
+        }
 
         if ($this->cli->arguments->get('help')) {
             $this->cli->usage();
@@ -320,7 +328,7 @@ class PHPloy
         }
 
         if ($this->cli->arguments->get('version')) {
-            $this->cli->bold()->info('PHPloy v'.$this->version);
+            $this->cli->bold()->info('PHPloy v'.self::VERSION);
 
             return;
         }
@@ -346,7 +354,7 @@ class PHPloy
     {
         $this->repo = getcwd();
 
-        if ($this->cli->arguments->defined('debug')) {
+        if ($this->cli->arguments->defined('debug') || $this->cli->arguments->defined('verbose')) {
             $this->debug = true;
         }
 
@@ -384,6 +392,14 @@ class PHPloy
 
         if ($this->cli->arguments->defined('fresh')) {
             $this->fresh = true;
+        }
+
+        if ($this->cli->arguments->defined('inifile')) {
+            $this->iniFileName = $this->cli->arguments->get('inifile');
+        }
+
+        if ($this->cli->arguments->defined('passfile')) {
+            $this->passFile = $this->cli->arguments->get('passfile');
         }
 
         $this->repo = getcwd();
@@ -568,16 +584,18 @@ class PHPloy
                 $options['port'] = getenv('PHPLOY_PORT');
             }
 
-            // Set username from .phploy config file or environment variable if it does not exist in the config
+            // Set username from the password config file or environment variable if it does not exist in the config
             if (empty($options['user'])) {
 
-                // Look for .phploy config file
+                // Look for the password config file
                 if (file_exists($this->getPasswordFile())) {
                     $options['user'] = $this->getUserFromIniFile($name);
                 } elseif (!empty(getenv('PHPLOY_USER'))) {
                     $options['user'] = getenv('PHPLOY_USER');
-                } else {
-                    $this->cli->red()->out('No user has been provided.');
+                }
+
+                if (empty($options['user'])) {
+                    $this->error('No user has been provided.');
                 }
             }
 
@@ -587,7 +605,7 @@ class PHPloy
 
             // Ask for a password if it is empty and a private key is not provided
             if ($options['pass'] === '' && $options['privkey'] === '') {
-                // Look for .phploy config file
+                // Look for password config file
                 if (file_exists($this->getPasswordFile())) {
                     $options['pass'] = $this->getPasswordFromIniFile($name);
                 } elseif (!empty(getenv('PHPLOY_PASS'))) {
@@ -665,7 +683,7 @@ class PHPloy
     }
 
     /**
-     * Try to fetch password from .phploy file if not found, an empty string will be returned.
+     * Try to fetch password from the password file if not found, an empty string will be returned.
      *
      * @param string $servername Server to fetch password for
      *
@@ -687,11 +705,12 @@ class PHPloy
     }
 
     /**
-     * Try to fetch user from .phploy file, if not found an empty string will be returned.
+     * Try to fetch user from the password file, if not found an empty string will be returned.
      *
      * @param string $servername Server to fetch user for
      *
      * @return string
+     * @throws \Exception
      */
     public function getUserFromIniFile($servername)
     {
@@ -746,7 +765,7 @@ class PHPloy
         }
 
         $thisBase = $this->base;
-        
+
         return array_values(
             array_filter(
                 $files,
@@ -1602,6 +1621,16 @@ class PHPloy
     }
 
     /**
+     * Helper method to output messages to the console as errors
+     *
+     * @param string $message Message to display on the console
+     */
+    public function error($message)
+    {
+        $this->cli->error("$message");
+    }
+
+    /**
      * Creates sample ini file.
      */
     protected function createIniFile()
@@ -1637,6 +1666,25 @@ class PHPloy
 
             // Format: time --- type: message
             file_put_contents($filename, date('Y-m-d H:i:sP').' --- '.$type.': '.$message.PHP_EOL, FILE_APPEND);
+        }
+    }
+
+    /**
+     * Starts PHPLoy
+     *
+     * @param Options $options
+     */
+    public static function start(Options $options = null) {
+        try {
+            $phploy = new PHPloy($options, false);
+            $phploy->run();
+        } catch (\Exception $e) {
+            if (isset($phploy)) {
+                $phploy->error("Oh Snap, " . get_class($e) . ": {$e->getMessage()}");
+                $phploy->debug($e->getTraceAsString());
+            }
+            // Return 1 to indicate error to caller
+            exit(1);
         }
     }
 }
