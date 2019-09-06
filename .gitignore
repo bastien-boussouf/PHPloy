@@ -5,3 +5,7 @@
 /dev
 *~
 *.swp
+.DS_Store
+!phploy.ini
+phploy*.ini
+.phploy*
