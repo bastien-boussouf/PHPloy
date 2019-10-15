@@ -13,6 +13,11 @@
 
 namespace Banago\PHPloy;
 
+use League\CLImate\Argument\Argument;
+use League\Flysystem\FileNotFoundException;
+use League\Flysystem\Filesystem;
+use phpseclib\Net\SFTP;
+
 define('QUOTE', "'");
 define('DQUOTE', '"');
 
@@ -165,7 +170,7 @@ class PHPloy
     public $passFile = Options::DEFAULT_PASS_FILE;
 
     /**
-     * @var \League\Flysystem\Filesystem;
+     * @var Filesystem;
      */
     protected $connection = null;
 
@@ -343,7 +348,7 @@ class PHPloy
             $this->git = new \Banago\PHPloy\Git($this->repo);
             $this->deploy();
         } else {
-            throw new \Exception("'{$this->repo}' is not a Git repository.");
+            throw new PHPloyException("'{$this->repo}' is not a Git repository.");
         }
     }
 
@@ -414,17 +419,19 @@ class PHPloy
     public function checkArguments()
     {
         $prefixes = array_reduce($this->cli->arguments->all(), function ($result, $a) {
+            /** @var Argument $a */
             if ($a->prefix()) {
                 $result[] = '-'.$a->prefix();
-            };
+            }
 
             return $result;
         }, []);
 
         $prefixes = array_reduce($this->cli->arguments->all(), function ($result, $a) {
+            /** @var Argument $a */
             if ($a->longprefix()) {
                 $result[] = '--'.$a->longprefix();
-            };
+            }
 
             return $result;
         }, $prefixes);
@@ -451,11 +458,11 @@ class PHPloy
     protected function parseIniFile($iniFile)
     {
         if (!file_exists($iniFile)) {
-            throw new \Exception("'$iniFile' does not exist.");
+            throw new PHPloyException("'$iniFile' does not exist.");
         } else {
             $values = parse_ini_file($iniFile, true);
             if (!$values) {
-                throw new \Exception("'$iniFile' is not a valid .ini file.");
+                throw new PHPloyException("'$iniFile' is not a valid .ini file.");
             } else {
                 return $values;
             }
@@ -551,13 +558,13 @@ class PHPloy
             $iniFile = $this->repo . DIRECTORY_SEPARATOR . $this->iniFileName;
         }
 
-        $servers = $this->parseIniFile($iniFile);
+        $iniServers = $this->parseIniFile($iniFile);
 
-        $defaults = $this->prepareDefaults(isset($servers['*']) ? $servers['*'] : []);
+        $defaults = $this->prepareDefaults(isset($iniServers['*']) ? $iniServers['*'] : []);
 
-        unset($servers['*']);
+        unset($iniServers['*']);
 
-        foreach ($servers as $name => $options) {
+        foreach ($iniServers as $name => $options) {
 
             // If a server is specified, skip others
             if ($this->server != '' && $this->server != $name) {
@@ -698,7 +705,7 @@ class PHPloy
         }
 
         if (isset($values[$servername]['password']) === true) {
-            throw new \Exception('Please rename password to pass in '.$this->getPasswordFile());
+            throw new PHPloyException('Please rename password to pass in '.$this->getPasswordFile());
         }
 
         return '';
@@ -752,7 +759,7 @@ class PHPloy
     }
 
     /**
-     * Filter files form base path.
+     * Filter files from base path.
      *
      * @param array $files Array of files which needed to be filtered
      *
@@ -820,6 +827,7 @@ class PHPloy
 
     /**
      * Connect to server.
+     * @param $server
      * @throws \Exception
      */
     public function connect($server)
@@ -844,7 +852,7 @@ class PHPloy
 
         // Exit with an error if the specified server does not exist in phploy.ini
         if ($this->server != '' && !array_key_exists($this->server, $this->servers)) {
-            throw new \Exception("The server \"{$this->server}\" is not defined in {$this->iniFileName}.");
+            throw new PHPloyException("The server \"{$this->server}\" is not defined in {$this->iniFileName}.");
         }
 
         // Loop through all the servers in phploy.ini
@@ -1018,16 +1026,12 @@ class PHPloy
         if (!empty($this->servers[$this->currentServerName]['branch'])) {
             $output = $this->git->checkout($this->servers[$this->currentServerName]['branch'], $this->repo);
 
-            if (isset($output[0])) {
-                if (strpos($output[0], 'error') === 0) {
-                    throw new \Exception('Stash your modifications before deploying.');
-                }
+            if (isset($output[0]) && strpos($output[0], 'error') === 0) {
+                throw new PHPloyException('Stash your modifications before deploying.');
             }
 
-            if (isset($output[1])) {
-                if ($output[1][0] === 'M') {
-                    throw new \Exception('Stash your modifications before deploying.');
-                }
+            if (isset($output[1]) && $output[1][0] === 'M') {
+                throw new PHPloyException('Stash your modifications before deploying.');
             }
 
             if (isset($output[0])) {
@@ -1058,7 +1062,7 @@ class PHPloy
                     continue;
                 } elseif (strpos($line, 'The file will have its original line endings in your working directory.') !== false) {
                     continue;
-                } elseif ($status === 'A' or $status === 'C' or $status === 'M' or $status === 'T') {
+                } elseif ($status === 'A' || $status === 'C' || $status === 'M' || $status === 'T') {
                     $filesToUpload[] = trim(substr($line, 1));
                 } elseif ($status == 'D') {
                     $filesToDelete[] = trim(substr($line, 1));
@@ -1068,7 +1072,7 @@ class PHPloy
                     $filesToDelete[] = trim($oldFile);
                     $filesToUpload[] = trim($newFile);
                 } else {
-                    throw new \Exception("Unknown git-diff status. Use '--sync' to update remote revision or use '--debug' to see what's wrong.");
+                    throw new PHPloyException("Unknown git-diff status. Use '--sync' to update remote revision or use '--debug' to see what's wrong.");
                 }
             }
         } else {
@@ -1101,6 +1105,8 @@ class PHPloy
      *
      * @param array $files 2-dimensional array with 2 indices: 'upload' and 'delete'
      *                     Each of these contains an array of filenames and paths.
+     * @param string $localRevision
+     * @throws FileNotFoundException
      * @throws \Exception
      */
     public function push($files, $localRevision = null)
@@ -1145,7 +1151,6 @@ class PHPloy
                 // Make sure the folder exists in the FTP server.
                 $dir = explode('/', dirname($fileBaseless));
                 $path = '';
-                $ret = true;
 
                 // Skip mkdir if dir is basedir
                 if ($dir[0] !== '.') {
@@ -1157,10 +1162,8 @@ class PHPloy
                             if (!$this->connection->has($path)) {
                                 $this->connection->createDir($path);
                                 $this->cli->out(" + Created directory '$path'.");
-                                $pathsThatExist[$path] = true;
-                            } else {
-                                $pathsThatExist[$path] = true;
                             }
+                            $pathsThatExist[$path] = true;
                         }
                     }
                 }
@@ -1186,6 +1189,9 @@ class PHPloy
                         $this->cli->info(' * Connection lost, trying to reconnect...');
                         $this->connect($this->currentServerInfo);
                         $uploaded = $this->connection->put($remoteFile, $data);
+                        if (!$uploaded) {
+                            throw new PHPloyException('Failed to upload "' . $remoteFile . '" after retry');
+                        }
                     }
                 }
 
@@ -1230,12 +1236,12 @@ class PHPloy
             }
         }
 
-        if (count($filesToUpload) > 0 or count($filesToDelete) > 0) {
+        if (count($filesToUpload) > 0 || count($filesToDelete) > 0) {
             // If $this->revision is not HEAD, it means the rollback command was provided
             if ($this->revision != 'HEAD') {
                 // Get rollback revision (current HEAD is on rollback revision)
-                $revision = $this->git->command('rev-parse HEAD');
-                $this->setRevision($revision[0]);
+                $rev = $this->git->command('rev-parse HEAD');
+                $this->setRevision($rev[0]);
             } else {
                 $this->setRevision($localRevision);
             }
@@ -1256,6 +1262,7 @@ class PHPloy
 
     /**
      * Sets revision on the server.
+     * @param string $localRevision
      */
     public function setRevision($localRevision = null)
     {
@@ -1385,7 +1392,7 @@ class PHPloy
      * Purge given directory's contents.
      *
      * @var string
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException
      */
     public function purge($purgeDirs)
     {
@@ -1428,7 +1435,7 @@ class PHPloy
      * Copy given directory's contents.
      *
      * @var string
-     * @throws \League\Flysystem\FileNotFoundException
+     * @throws FileNotFoundException
      * @throws \League\Flysystem\FileExistsException
      */
     public function copy($copyDirs)
@@ -1537,9 +1544,7 @@ class PHPloy
      */
     public function executeOnRemoteServer(array $commands)
     {
-        /*
-         * @var \phpseclib\Net\SFTP
-         */
+        /** @var SFTP $con */
         $con = $this->connection->getAdapter()->getConnection();
 
         if ($this->servers[$this->currentServerName]['scheme'] != 'sftp') {
