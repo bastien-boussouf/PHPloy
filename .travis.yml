@@ -9,7 +9,6 @@ php:
   - '7.2'
 
 before_install:
-  - composer self-update -1
   - mkdir -p "/tmp/PHPloyTestWorkspace/sftp_share/share"
   - mkdir -p "/tmp/PHPloyTestWorkspace/ftp_share/share"
   - chmod -R 777 "/tmp/PHPloyTestWorkspace/ftp_share"
