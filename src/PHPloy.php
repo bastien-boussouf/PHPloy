@@ -8,7 +8,7 @@
  * @link https://github.com/banago/PHPloy
  * @licence MIT Licence
  *
- * @version 4.9.3
+ * @version 4.9.4
  */
 
 namespace Banago\PHPloy;
@@ -23,7 +23,7 @@ define('DQUOTE', '"');
 
 class PHPloy
 {
-    const VERSION = '4.9.3';
+    const VERSION = '4.9.4';
 
     /**
      * @var string
