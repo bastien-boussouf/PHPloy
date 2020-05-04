@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ERROR_REPORTING="$(php -r 'echo E_ALL & ~E_NOTICE | E_STRICT;')"
+php -d error_reporting="$ERROR_REPORTING" "$BASE_DIR/phploy.php" "$@"
