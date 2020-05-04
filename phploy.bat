@@ -20,7 +20,7 @@ chcp 65001 > NUL
 :: error_reporting integer value of E_ALL & ~E_NOTICE
 for /f %%i in ('php -r "echo E_ALL & ~E_NOTICE;"') do set ER=%%i
 
-:: %~dp0 is the shell variable for the script directory, equivalent to the PHP "__DIR__" 
+:: %~dp0 is the shell variable for the script directory, equivalent to the PHP "__DIR__"
 :: magic constant. You can replace it with your phploy installation directory if you
 :: moved this bat file from it.
-php -d error_reporting=%ER% "%~dp0\dist\phploy.phar" %*
+php -d error_reporting=%ER% "%~dp0\phploy.php" %*
