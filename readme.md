@@ -1,7 +1,5 @@
 # PHPloy
 
-**Version 4.9.2**
-
 PHPloy is an incremental Git FTP and SFTP deployment tool. By keeping track of the state of the remote server(s) it deploys only the files that were committed since the last deployment. PHPloy supports submodules, sub-submodules, deploying to multiple servers and rollbacks. PHPloy requires **PHP 5.6+** and **Git 1.8+**.
 
 ## How it works
@@ -55,7 +53,7 @@ The `phploy.ini` file holds your project configuration. It should be located in 
     pass = password
     ; Or private key-based authentication:
     privkey = 'path/to/or/contents/of/privatekey'
-    host = staging-example.com
+    host = staging.example.com
     path = /path/to/installation
     port = 22
     ; You can specify a branch to deploy from
@@ -85,8 +83,8 @@ The `phploy.ini` file holds your project configuration. It should be located in 
     ; Use 'QUOTE' inside your qouted strings to insert a literal quote
     ; For example pre-deploy[] = 'echo "that'QUOTE's nice"' to get a literal "that's".
     ; That workaround is based on http://php.net/manual/de/function.parse-ini-file.php#70847
-    pre-deploy[] = "wget http://staging-example.com/pre-deploy/test.php --spider --quiet"
-    post-deploy[] = "wget http://staging-example.com/post-deploy/test.php --spider --quiet"
+    pre-deploy[] = "wget http://staging.example.com/pre-deploy/test.php --spider --quiet"
+    post-deploy[] = "wget http://staging.example.com/post-deploy/test.php --spider --quiet"
     ; Works only via SSH2 connection
     pre-deploy-remote[] = "touch .maintenance"
     post-deploy-remote[] = "mv cache cache2"
@@ -96,7 +94,7 @@ The `phploy.ini` file holds your project configuration. It should be located in 
     timeout = 60
 
 [production]
-    quickmode = ftp://example:password@production-example.com:21/path/to/installation
+    quickmode = ftp://example:password@production.example.com:21/path/to/installation
     passive = true
     ssl = false
     ; You can specify a branch to deploy from
@@ -115,8 +113,8 @@ The `phploy.ini` file holds your project configuration. It should be located in 
     include[] = 'directory-name/'
     purge-before[] = "dist/" 
     purge[] = "cache/" 
-    pre-deploy[] = "wget http://staging-example.com/pre-deploy/test.php --spider --quiet"
-    post-deploy[] = "wget http://staging-example.com/post-deploy/test.php --spider --quiet"
+    pre-deploy[] = "wget http://production.example.com/pre-deploy/test.php --spider --quiet"
+    post-deploy[] = "wget http://production.example.com/post-deploy/test.php --spider --quiet"
 ```
 
 If your password is missing in the `phploy.ini` file or the `PHPLOY_PASS` environment variable, PHPloy will interactively ask you for your password.
@@ -192,10 +190,10 @@ servers. This basically allows you to inject custom default values.
 
 ; As a result both shard1 and shard2 will have the same exclude[] and include[] "default" values
 [shard1]
-    quickmode = ftp://example:password@shard1-example.com:21/path/to/installation
+    quickmode = ftp://example:password@shard1.example.com:21/path/to/installation
 
 [shard2]
-    quickmode = ftp://example:password@shard2-example.com:21/path/to/installation
+    quickmode = ftp://example:password@shard2.example.com:21/path/to/installation
 ```
 
 ## Rollbacks
